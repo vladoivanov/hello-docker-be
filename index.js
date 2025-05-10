@@ -6,31 +6,37 @@ const port = process.env.PORT || 3000;
 const db = new Pool();
 
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 (async () => {
-    try {
-        await db.query(`
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                content TEXT NOT NULL
-            );
-        `);
-        console.log("✅ Table 'messages' is ready.");
-    } catch (err) {
-        console.error("❌ Failed to create table:", err);
-        process.exit(1);
-    }
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            content TEXT NOT NULL
+        );
+    `);
 })();
 
-app.post("/submit", async (req, res) => {
-    const { message } = req.body;
+// API: вземи всички съобщения
+app.get("/messages", async (req, res) => {
     try {
-        await db.query("INSERT INTO messages (content) VALUES ($1)", [message]);
-        console.log("User submitted:", message);
-        res.send(`<p>You wrote: ${message}</p><a href="/">Back</a>`);
+        const result = await db.query("SELECT * FROM messages ORDER BY id DESC");
+        res.json(result.rows);
     } catch (err) {
         console.error("DB error:", err);
-        res.status(500).send("Database error");
+        res.status(500).json({ error: "Database error" });
+    }
+});
+
+// API: добави съобщение
+app.post("/submit", async (req, res) => {
+    const message = req.body.message;
+    try {
+        await db.query("INSERT INTO messages (content) VALUES ($1)", [message]);
+        res.status(201).json({ status: "ok" });
+    } catch (err) {
+        console.error("DB error:", err);
+        res.status(500).json({ error: "Database error" });
     }
 });
 
